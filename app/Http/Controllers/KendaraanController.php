@@ -5,29 +5,35 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Kendaraan;
+use App\Models\Perbaikan;
 
 class KendaraanController extends Controller
 {
-    public function index()
-    {
-        $totalKendaraan = Kendaraan::count();
+public function index()
+{
+    $totalKendaraan = Kendaraan::count();
 
-        $kendaraanReady = Kendaraan::where('status', 'Ready')->count();
+    $kendaraanReady = Kendaraan::where('status', 'Ready')->count();
 
-        $kendaraanPerbaikan = Kendaraan::where('status', 'Perbaikan')->count();
+    $kendaraanPerbaikan = Kendaraan::where('status', 'Perbaikan')->count();
 
-        $listReady = Kendaraan::where('status', 'Ready')
-            ->latest()
-            ->take(10)
-            ->get();
+    // HAPUS ->take(10) agar menampilkan semua data
+    $listReady = Kendaraan::where('status', 'Ready')
+        ->latest()
+        ->get();
 
-        return view('dashboard.index', compact(
-            'totalKendaraan',
-            'kendaraanReady',
-            'kendaraanPerbaikan',
-            'listReady'
-        ));
-    }
+    $listPerbaikan = Perbaikan::with('kendaraan')
+                            ->where('status', 'Proses') // atau 'Perbaikan' sesuai database kamu
+                            ->get();
+    return view('dashboard.index', compact(
+        'totalKendaraan',
+        'kendaraanReady',
+        'kendaraanPerbaikan',
+        'listReady',
+        'listPerbaikan'
+
+    ));
+}
 
     public function create()
     {
