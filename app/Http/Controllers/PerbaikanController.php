@@ -15,11 +15,22 @@ class PerbaikanController extends Controller
      */
     public function index()
     {
+        $totalKendaraan = Kendaraan::count();
+        $kendaraanPerbaikan = Kendaraan::where('status', 'Perbaikan')->count();
+
+        $kendaraanReady = Kendaraan::where('status', 'Ready')->count();
         $perbaikans = Perbaikan::with('kendaraan')
             ->latest()
             ->get();
+                $listReady = Kendaraan::where('status', 'Ready')
+        ->latest()
+        ->get();
 
-        return view('perbaikan.index', compact('perbaikans'));
+    $listPerbaikan = Perbaikan::with('kendaraan')
+                            ->where('status', 'Proses') // atau 'Perbaikan' sesuai database kamu
+                            ->get();
+
+        return view('perbaikan.index', compact('perbaikans', 'totalKendaraan', 'kendaraanReady', 'kendaraanPerbaikan', 'listReady', 'listPerbaikan'));
     }
 
     /**
