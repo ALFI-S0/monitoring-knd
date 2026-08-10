@@ -35,7 +35,7 @@
 
             <div class="card-body px-4 pb-4">
                 <div class="table-responsive">
-                    <table id="tableKendaraan" class="table table-hover align-middle mb-0">
+                    <table id="tableKendaraan" class="table table-hover align-middle mb-0" style="width: 100%;">
                         <thead>
                             <tr>
                                 <th class="py-3" style="width: 60px;">No</th>
@@ -297,31 +297,103 @@
 .modal-content { border-radius: 16px; }
 .form-control, .form-select { border-radius: 8px; padding: 0.6rem 0.75rem; border-color: #dee2e6; }
 .form-control:focus, .form-select:focus { box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15); }
+/* Merapikan Kontrol DataTables (Length & Search) */
+div.dataTables_wrapper div.dataTables_length {
+    float: left !important;
+    margin-bottom: 1rem;
+}
+
+div.dataTables_wrapper div.dataTables_filter {
+    float: right !important;
+    text-align: right !important;
+    margin-bottom: 1rem;
+}
+
+/* Memastikan Flexbox pada Kontrol Input DataTables */
+div.dataTables_wrapper div.dataTables_length label,
+div.dataTables_wrapper div.dataTables_filter label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #495057;
+    font-weight: 500;
+    margin-bottom: 0;
+}
+
+/* Penyesuaian Ukuran Select & Input Search */
+div.dataTables_wrapper div.dataTables_length select {
+    width: auto !important;
+    display: inline-block !important;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+div.dataTables_wrapper div.dataTables_filter input {
+    width: 220px !important;
+    display: inline-block !important;
+    margin-left: 0 !important;
+    border-radius: 8px;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #dee2e6;
+}
+
+/* Perbaikan Clearfix agar tabel tidak bertumpuk dengan filter */
+div.dataTables_wrapper::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+/* Merapikan Footer (Pagination & Info) */
+div.dataTables_wrapper div.dataTables_info {
+    float: left !important;
+    padding-top: 0.85em;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+div.dataTables_wrapper div.dataTables_paginate {
+    float: right !important;
+    margin-top: 0.5rem;
+}
 </style>
 @endsection
-
 @push('scripts')
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    // Inisialisasi DataTable
+$(document).ready(function() {
+    // Inisialisasi DataTables dengan layout DOM Bootstrap 5
     if ($.fn.DataTable) {
         $('#tableKendaraan').DataTable({
             responsive: true,
             pageLength: 10,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Semua"]],
+            // Struktur DOM untuk memisahkan Length (kiri) & Search (kanan) sejajar
+            dom: "<'row mb-3 align-items-center'<'col-md-6 d-flex justify-content-start'l><'col-md-6 d-flex justify-content-end'f>>" +
+                 "<'row'<'col-sm-12'tr>>" +
+                 "<'row mt-3 align-items-center'<'col-md-5'i><'col-md-7 d-flex justify-content-end'p>>",
             language: {
                 search: "Cari :",
+                searchPlaceholder: "Ketik untuk mencari...",
                 lengthMenu: "Tampilkan _MENU_ data",
                 zeroRecords: "Data tidak ditemukan",
                 info: "Menampilkan _START_ sampai _END_ dari _TOTAL_ data",
                 infoEmpty: "Belum ada data",
-                paginate: { previous: "<i class='bi bi-chevron-left'></i>", next: "<i class='bi bi-chevron-right'></i>" }
+                infoFiltered: "(disaring dari _MAX_ total data)",
+                paginate: { 
+                    previous: "<i class='bi bi-chevron-left'></i>", 
+                    next: "<i class='bi bi-chevron-right'></i>" 
+                }
             }
         });
     }
 
-    // Handle data passing ke Modal Detail
+    // Handle data passing ke Modal Detail (Delegasi Event)
     $('#tableKendaraan tbody').on('click', '.btn-detail', function() {
         const nopol = $(this).attr('data-nopolisi');
         const merk = $(this).attr('data-merk');
@@ -364,7 +436,7 @@ document.addEventListener("DOMContentLoaded", function() {
         $('#detail_status_badge').html(badgeHtml);
     });
 
-    // Handle data passing ke Modal Edit ketika tombol diklik
+    // Handle data passing ke Modal Edit
     $('#tableKendaraan tbody').on('click', '.btn-edit', function() {
         const id = $(this).attr('data-id');
         const nopol = $(this).attr('data-nopolisi');
