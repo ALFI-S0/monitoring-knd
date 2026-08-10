@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
-
 use App\Models\Kendaraan;
 use App\Models\Perbaikan;
 use Illuminate\Http\Request;
@@ -11,26 +10,25 @@ use Illuminate\Http\Request;
 class PerbaikanController extends Controller
 {
     /**
-     * Menampilkan daftar perbaikan (Bisa diakses oleh semua departemen, termasuk Ekspedisi/ID 2)
+     * Menampilkan daftar perbaikan (Dapat diakses oleh semua departemen)
      */
     public function index()
     {
-        $totalKendaraan = Kendaraan::count();
+        $totalKendaraan     = Kendaraan::count();
+        $kendaraanReady     = Kendaraan::where('status', 'Ready')->count();
         $kendaraanPerbaikan = Kendaraan::where('status', 'Perbaikan')->count();
 
-        $kendaraanReady = Kendaraan::where('status', 'Ready')->count();
+        // Ambil seluruh data perbaikan beserta relasi kendaraannya
         $perbaikans = Perbaikan::with('kendaraan')
             ->latest()
             ->get();
-                $listReady = Kendaraan::where('status', 'Ready')
-        ->latest()
-        ->get();
 
-    $listPerbaikan = Perbaikan::with('kendaraan')
-                            ->where('status', 'Proses') // atau 'Perbaikan' sesuai database kamu
-                            ->get();
-
-        return view('perbaikan.index', compact('perbaikans', 'totalKendaraan', 'kendaraanReady', 'kendaraanPerbaikan', 'listReady', 'listPerbaikan'));
+        return view('perbaikan.index', compact(
+            'perbaikans', 
+            'totalKendaraan', 
+            'kendaraanReady', 
+            'kendaraanPerbaikan'
+        ));
     }
 
     /**
@@ -38,12 +36,11 @@ class PerbaikanController extends Controller
      */
     public function create()
     {
-        // Pengecekan Hak Akses: Hanya Departemen ID 1 dan 3
         if (!in_array(Auth::user()->departemen_id, [1, 3])) {
-            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk menambah perbaikan.');
+            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk menambah data perbaikan.');
         }
 
-        // Hanya mengambil kendaraan yang sedang 'Ready' untuk diperbaiki
+        // Hanya mengambil kendaraan yang berstatus 'Ready'
         $kendaraans = Kendaraan::where('status', 'Ready')
             ->orderBy('no_polisi')
             ->get();
@@ -56,33 +53,26 @@ class PerbaikanController extends Controller
      */
     public function store(Request $request)
     {
-        // Pengecekan Hak Akses
         if (!in_array(Auth::user()->departemen_id, [1, 3])) {
-            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk mengedit data perbaikan.');
+            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk menambah data perbaikan.');
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'kendaraan_id'      => 'required|exists:kendaraans,id',
             'tanggal_perbaikan' => 'required|date',
-            'kendala'           => 'required',
-            'tindakan'          => 'nullable',
+            'kendala'           => 'required|string',
+            'tindakan'          => 'nullable|string',
             'estimasi_selesai'  => 'nullable|date',
-            'catatan'           => 'nullable',
+            'catatan'           => 'nullable|string',
         ]);
 
-        Perbaikan::create([
-            'kendaraan_id'      => $request->kendaraan_id,
-            'tanggal_perbaikan' => $request->tanggal_perbaikan,
-            'kendala'           => $request->kendala,
-            'tindakan'          => $request->tindakan,
-            'estimasi_selesai'  => $request->estimasi_selesai,
-            'catatan'           => $request->catatan,
-            'status'            => 'Proses', // Default dari migration
-        ]);
+        // Tambahkan status default 'Proses'
+        $validated['status'] = 'Proses';
 
-        // Update status kendaraan menjadi Perbaikan
-        $kendaraan = Kendaraan::findOrFail($request->kendaraan_id);
-        $kendaraan->update([
+        $perbaikan = Perbaikan::create($validated);
+
+        // Update status kendaraan terkait menjadi 'Perbaikan'
+        $perbaikan->kendaraan()->update([
             'status' => 'Perbaikan'
         ]);
 
@@ -106,47 +96,37 @@ class PerbaikanController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        // Pengecekan Hak Akses: Hanya Departemen ID 1 dan 3
         if (!in_array(Auth::user()->departemen_id, [1, 3])) {
-            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk menyimpan data perbaikan.');
+            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk mengubah data perbaikan.');
         }
 
         $perbaikan = Perbaikan::findOrFail($id);
 
         // Proteksi Backend: Jika status perbaikan sudah Selesai, cegah update
-        if ($perbaikan->status == 'Selesai') {
+        if ($perbaikan->status === 'Selesai') {
             return back()->with('error', 'Data perbaikan yang sudah Selesai tidak dapat diubah lagi.');
         }
-        
-        $request->validate([
+
+        $validated = $request->validate([
             'tanggal_perbaikan' => 'required|date',
             'estimasi_selesai'  => 'nullable|date',
             'tanggal_selesai'   => 'nullable|date',
-            'kendala'           => 'required',
-            'tindakan'          => 'nullable',
-            'catatan'           => 'nullable',
+            'kendala'           => 'required|string',
+            'tindakan'          => 'nullable|string',
+            'catatan'           => 'nullable|string',
             'status'            => 'required|in:Proses,Selesai',
         ]);
 
-        $perbaikan->update([
-            'tanggal_perbaikan' => $request->tanggal_perbaikan,
-            'estimasi_selesai'  => $request->estimasi_selesai,
-            'tanggal_selesai'   => $request->status == 'Selesai' ? $request->tanggal_selesai : null,
-            'kendala'           => $request->kendala,
-            'tindakan'          => $request->tindakan,
-            'catatan'           => $request->catatan,
-            'status'            => $request->status,
-        ]);
+        // Atur tanggal selesai berdasarkan status
+        $validated['tanggal_selesai'] = ($request->status === 'Selesai') ? $request->tanggal_selesai : null;
 
-        if ($request->status == 'Selesai') {
-            $perbaikan->kendaraan()->update([
-                'status' => 'Ready'
-            ]);
-        } else {
-            $perbaikan->kendaraan()->update([
-                'status' => 'Perbaikan'
-            ]);
-        }
+        $perbaikan->update($validated);
+
+        // Update status armada kendaraan
+        $statusKendaraan = ($request->status === 'Selesai') ? 'Ready' : 'Perbaikan';
+        $perbaikan->kendaraan()->update([
+            'status' => $statusKendaraan
+        ]);
 
         return redirect()
             ->route('perbaikan.index')
@@ -158,15 +138,14 @@ class PerbaikanController extends Controller
      */
     public function destroy(string $id)
     {
-        // Pengecekan Hak Akses: Hanya Departemen ID 1 dan 3
-        // Pengecekan Hak Akses
         if (!in_array(Auth::user()->departemen_id, [1, 3])) {
-            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk mengedit data perbaikan.');
+            abort(403, 'Akses Ditolak! Anda tidak memiliki izin untuk menghapus data perbaikan.');
         }
 
         $perbaikan = Perbaikan::findOrFail($id);
 
-        if ($perbaikan->status == 'Proses') {
+        // Jika data perbaikan masih berstatus 'Proses' lalu dihapus, kembalikan kendaraan ke 'Ready'
+        if ($perbaikan->status === 'Proses') {
             $perbaikan->kendaraan()->update([
                 'status' => 'Ready'
             ]);
@@ -174,6 +153,6 @@ class PerbaikanController extends Controller
 
         $perbaikan->delete();
 
-        return back()->with('success', 'Data berhasil dihapus.');
+        return back()->with('success', 'Data perbaikan berhasil dihapus.');
     }
 }
